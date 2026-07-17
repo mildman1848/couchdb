@@ -102,6 +102,11 @@ jobs:
             type=raw,value=${{ env.VERSION }}
             type=sha,prefix=sha-
             type=raw,value=latest,enable={{ is_default_branch }}
+          labels: |
+            org.opencontainers.image.title=CouchDB
+            org.opencontainers.image.description=Apache CouchDB container image with LSIO-style s6 supervision and /config persistence
+            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.vendor=Mildman1848
 
       - name: Build image
         uses: docker/build-push-action@v7
