@@ -1,0 +1,17 @@
+.git
+.gitignore
+.gitattributes
+.dockerignore
+secrets/*
+!secrets/.gitkeep
+config/*
+!config/.gitkeep
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
+*.tar
+*.sbom.json
+*.sarif
+__pycache__/
+*.py[cod]

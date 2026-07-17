@@ -1,0 +1,65 @@
+#!/usr/bin/with-contenv bash
+# shellcheck shell=bash
+set -euo pipefail
+
+source /usr/local/bin/file-env
+file_env COUCHDB_USER "admin"
+file_env COUCHDB_PASSWORD ""
+file_env COUCHDB_SECRET ""
+file_env COUCHDB_ERLANG_COOKIE ""
+
+if [[ -z "${COUCHDB_PASSWORD}" ]]; then
+  echo "ERROR: COUCHDB_PASSWORD or FILE__COUCHDB_PASSWORD is required" >&2
+  exit 1
+fi
+
+mkdir -p /config/data /config/log /config/etc/local.d /config/couchdb
+rm -rf /opt/couchdb/data /opt/couchdb/var/log
+ln -sfn /config/data /opt/couchdb/data
+ln -sfn /config/log /opt/couchdb/var/log
+
+if [[ -z "${COUCHDB_SECRET}" ]]; then
+  if [[ -f /config/couchdb/secret ]]; then
+    COUCHDB_SECRET="$(< /config/couchdb/secret)"
+  else
+    COUCHDB_SECRET="$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 96)"
+    printf '%s' "${COUCHDB_SECRET}" > /config/couchdb/secret
+    chmod 600 /config/couchdb/secret
+  fi
+fi
+
+if [[ -z "${COUCHDB_ERLANG_COOKIE}" ]]; then
+  if [[ -f /config/couchdb/erlang.cookie ]]; then
+    COUCHDB_ERLANG_COOKIE="$(< /config/couchdb/erlang.cookie)"
+  else
+    COUCHDB_ERLANG_COOKIE="$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 96)"
+    printf '%s' "${COUCHDB_ERLANG_COOKIE}" > /config/couchdb/erlang.cookie
+    chmod 600 /config/couchdb/erlang.cookie
+  fi
+fi
+
+cat > /opt/couchdb/etc/local.d/10-mildman1848.ini <<EOF
+; Generated at container start. Do not commit secrets from this file.
+[chttpd]
+bind_address = any
+port = 5984
+
+[couchdb]
+single_node = true
+
+[admins]
+${COUCHDB_USER} = ${COUCHDB_PASSWORD}
+
+[chttpd_auth]
+secret = ${COUCHDB_SECRET}
+EOF
+
+printf '%s' "${COUCHDB_ERLANG_COOKIE}" > /opt/couchdb/.erlang.cookie
+chmod 600 /opt/couchdb/.erlang.cookie
+
+chown -R abc:abc /config /opt/couchdb || true
+chmod 755 /config /config/data /config/log /config/etc /config/etc/local.d
+
+unset COUCHDB_PASSWORD COUCHDB_SECRET COUCHDB_ERLANG_COOKIE
+export HOME=/config
+exec s6-setuidgid abc /opt/couchdb/bin/couchdb

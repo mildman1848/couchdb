@@ -1,0 +1,25 @@
+# Local runtime data
+.env
+.env.*
+!.env.example
+config/*
+!config/.gitkeep
+data/*
+!data/.gitkeep
+logs/*
+!logs/.gitkeep
+secrets/*
+!secrets/.gitkeep
+
+# Build artifacts
+*.tar
+*.sbom.json
+*.sarif
+sbom/
+__pycache__/
+*.py[cod]
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/

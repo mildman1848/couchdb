@@ -1,0 +1,21 @@
+services:
+  couchdb:
+    image: ${IMAGE_REF:-ghcr.io/mildman1848/couchdb:3.5.2.1-mldm1}
+    container_name: ${CONTAINER_NAME:-couchdb-dev}
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: Europe/Berlin
+      COUCHDB_USER: admin
+      FILE__COUCHDB_PASSWORD: /run/secrets/couchdb_password
+    volumes:
+      - ./config:/config
+    secrets:
+      - couchdb_password
+    ports:
+      - "5984:5984"
+    restart: unless-stopped
+
+secrets:
+  couchdb_password:
+    file: ./secrets/couchdb_password
