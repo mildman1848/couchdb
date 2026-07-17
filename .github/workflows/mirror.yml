@@ -20,27 +20,25 @@ jobs:
     name: Mirror Git repository
     runs-on: ubuntu-latest
     if: github.repository == 'mildman1848/couchdb'
+    env:
+      CODEBERG_MIRROR_SSH_KEY: ${{ secrets.CODEBERG_MIRROR_SSH_KEY }}
+      GITLAB_MIRROR_SSH_KEY: ${{ secrets.GITLAB_MIRROR_SSH_KEY }}
     steps:
       - name: Checkout full history
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Configure SSH
-        env:
-          CODEBERG_MIRROR_SSH_KEY: ${{ secrets.CODEBERG_MIRROR_SSH_KEY }}
-          GITLAB_MIRROR_SSH_KEY: ${{ secrets.GITLAB_MIRROR_SSH_KEY }}
+      - name: Skip mirror when secrets are not configured
+        if: env.CODEBERG_MIRROR_SSH_KEY == '' || env.GITLAB_MIRROR_SSH_KEY == ''
         run: |
           set -euo pipefail
+          echo "Mirror secrets are not configured; skipping external Git mirrors."
 
-          if [[ -z "${CODEBERG_MIRROR_SSH_KEY}" ]]; then
-            echo "CODEBERG_MIRROR_SSH_KEY is not configured" >&2
-            exit 2
-          fi
-          if [[ -z "${GITLAB_MIRROR_SSH_KEY}" ]]; then
-            echo "GITLAB_MIRROR_SSH_KEY is not configured" >&2
-            exit 2
-          fi
+      - name: Configure SSH
+        if: env.CODEBERG_MIRROR_SSH_KEY != '' && env.GITLAB_MIRROR_SSH_KEY != ''
+        run: |
+          set -euo pipefail
 
           install -d -m 700 ~/.ssh
           printf '%s\n' "${CODEBERG_MIRROR_SSH_KEY}" > ~/.ssh/codeberg_mirror
@@ -66,6 +64,7 @@ jobs:
           chmod 600 ~/.ssh/config
 
       - name: Mirror main and tags
+        if: env.CODEBERG_MIRROR_SSH_KEY != '' && env.GITLAB_MIRROR_SSH_KEY != ''
         run: |
           set -euo pipefail
 
