@@ -11,4 +11,4 @@
 
 Alpine does not currently provide a CouchDB package in Alpine 3.22, 3.23, 3.24, or edge. Building CouchDB from source would require Erlang/Elixir/SpiderMonkey and would add unnecessary maintenance burden.
 
-This image therefore uses `ghcr.io/linuxserver/baseimage-debian:bookworm` and installs CouchDB from the official Apache CouchDB Debian repository with GPG verification.
+This image therefore uses `ghcr.io/linuxserver/baseimage-debian:trixie` and installs CouchDB from the official Apache CouchDB Debian repository with GPG verification.

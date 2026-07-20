@@ -13,6 +13,7 @@ DOCKERFILE ?= Dockerfile
 CONTEXT ?= .
 PLATFORMS ?= linux/amd64,linux/arm64
 LOAD_PLATFORM ?= linux/amd64
+DEBIAN_SUITE ?= trixie
 DOCKER ?= docker
 COMPOSE ?= $(DOCKER) compose
 TRIVY ?= trivy
@@ -25,7 +26,7 @@ PGID ?= $(shell id -g)
 TZ ?= Europe/Berlin
 FORCE ?= 0
 UPSTREAM_PACKAGE ?= couchdb
-LSIO_BASE_IMAGE ?= ghcr.io/linuxserver/baseimage-debian:bookworm
+LSIO_BASE_IMAGE ?= ghcr.io/linuxserver/baseimage-debian:$(DEBIAN_SUITE)
 SBOM_FORMAT ?= spdx-json
 SBOM_OUTPUT ?= sbom/$(IMAGE_NAME)-$(IMAGE_TAG).spdx.json
 TRIVY_SEVERITY ?= HIGH,CRITICAL
@@ -52,6 +53,7 @@ info: ## Print image/build configuration.
 	@printf 'CONTEXT=%s\n' '$(CONTEXT)'
 	@printf 'PLATFORMS=%s\n' '$(PLATFORMS)'
 	@printf 'LOAD_PLATFORM=%s\n' '$(LOAD_PLATFORM)'
+	@printf 'DEBIAN_SUITE=%s\n' '$(DEBIAN_SUITE)'
 	@printf 'LSIO_BASE_IMAGE=%s\n' '$(LSIO_BASE_IMAGE)'
 	@printf 'UPSTREAM_PACKAGE=%s\n' '$(UPSTREAM_PACKAGE)'
 
@@ -82,6 +84,7 @@ env-validate: ## Validate common environment defaults without printing secrets.
 	@[[ '$(IMAGE_REVISION)' =~ ^mldm[0-9]+$$ ]] || { echo 'ERROR: IMAGE_REVISION must look like mldm<N>' >&2; exit 2; }
 	@[[ -n '$(IMAGE_NAME)' ]] || { echo 'ERROR: IMAGE_NAME is empty' >&2; exit 2; }
 	@[[ -n '$(APP_VERSION)' ]] || { echo 'ERROR: APP_VERSION is empty' >&2; exit 2; }
+	@[[ '$(DEBIAN_SUITE)' =~ ^[a-z0-9._-]+$$ ]] || { echo 'ERROR: DEBIAN_SUITE contains unsupported characters' >&2; exit 2; }
 	@[[ '$(VERSION)' == '$(APP_VERSION)-$(IMAGE_REVISION)' ]] || { echo 'ERROR: VERSION must equal APP_VERSION-IMAGE_REVISION' >&2; exit 2; }
 	@echo 'OK: environment metadata looks sane'
 
@@ -101,15 +104,15 @@ require-image:
 	@$(DOCKER) image inspect '$(IMAGE_REF)' >/dev/null 2>&1 || { echo "ERROR: image not found locally: $(IMAGE_REF)" >&2; echo "Run: make build DOCKER='$(DOCKER)'" >&2; exit 2; }
 
 build: require-dockerfile ## Build local single-platform image with --load.
-	@DOCKER='$(DOCKER)' IMAGE_NAME='$(REGISTRY)/$(IMAGE_NAME)' IMAGE_TAG='$(IMAGE_TAG)' VERSION='$(VERSION)' IMAGE_REVISION='$(IMAGE_REVISION)' APP_VERSION='$(APP_VERSION)' DOCKERFILE='$(DOCKERFILE)' CONTEXT='$(CONTEXT)' PLATFORMS='$(LOAD_PLATFORM)' scripts/buildx-build.sh --load
+	@DOCKER='$(DOCKER)' IMAGE_NAME='$(REGISTRY)/$(IMAGE_NAME)' IMAGE_TAG='$(IMAGE_TAG)' VERSION='$(VERSION)' IMAGE_REVISION='$(IMAGE_REVISION)' APP_VERSION='$(APP_VERSION)' DOCKERFILE='$(DOCKERFILE)' CONTEXT='$(CONTEXT)' PLATFORMS='$(LOAD_PLATFORM)' DEBIAN_SUITE='$(DEBIAN_SUITE)' scripts/buildx-build.sh --load
 
 build-multiarch: require-dockerfile ## Build multiarch image without pushing.
-	@DOCKER='$(DOCKER)' IMAGE_NAME='$(REGISTRY)/$(IMAGE_NAME)' IMAGE_TAG='$(IMAGE_TAG)' VERSION='$(VERSION)' IMAGE_REVISION='$(IMAGE_REVISION)' APP_VERSION='$(APP_VERSION)' DOCKERFILE='$(DOCKERFILE)' CONTEXT='$(CONTEXT)' PLATFORMS='$(PLATFORMS)' scripts/buildx-build.sh
+	@DOCKER='$(DOCKER)' IMAGE_NAME='$(REGISTRY)/$(IMAGE_NAME)' IMAGE_TAG='$(IMAGE_TAG)' VERSION='$(VERSION)' IMAGE_REVISION='$(IMAGE_REVISION)' APP_VERSION='$(APP_VERSION)' DOCKERFILE='$(DOCKERFILE)' CONTEXT='$(CONTEXT)' PLATFORMS='$(PLATFORMS)' DEBIAN_SUITE='$(DEBIAN_SUITE)' scripts/buildx-build.sh
 
 build-manifest: build-multiarch ## Alias for local multiarch manifest validation build.
 
 build-manifest-push: require-dockerfile ## Build and push multiarch image manifest.
-	@DOCKER='$(DOCKER)' IMAGE_NAME='$(REGISTRY)/$(IMAGE_NAME)' IMAGE_TAG='$(IMAGE_TAG)' VERSION='$(VERSION)' IMAGE_REVISION='$(IMAGE_REVISION)' APP_VERSION='$(APP_VERSION)' DOCKERFILE='$(DOCKERFILE)' CONTEXT='$(CONTEXT)' PLATFORMS='$(PLATFORMS)' scripts/buildx-build.sh --push
+	@DOCKER='$(DOCKER)' IMAGE_NAME='$(REGISTRY)/$(IMAGE_NAME)' IMAGE_TAG='$(IMAGE_TAG)' VERSION='$(VERSION)' IMAGE_REVISION='$(IMAGE_REVISION)' APP_VERSION='$(APP_VERSION)' DOCKERFILE='$(DOCKERFILE)' CONTEXT='$(CONTEXT)' PLATFORMS='$(PLATFORMS)' DEBIAN_SUITE='$(DEBIAN_SUITE)' scripts/buildx-build.sh --push
 
 inspect-manifest: ## Inspect a local/remote image manifest.
 	@$(DOCKER) buildx imagetools inspect '$(IMAGE_REF)'
@@ -193,7 +196,7 @@ check-upstream baseimage-check: ## Print current pinned LSIO baseimage and Couch
 	@$(DOCKER) buildx imagetools inspect '$(LSIO_BASE_IMAGE)' | sed -n '1,80p'
 	@echo ''
 	@echo 'Apache CouchDB Debian package signal for $(APP_VERSION):'
-	@$(DOCKER) run --rm debian:bookworm-slim sh -lc 'set -e; apt-get update >/dev/null; apt-get install -y --no-install-recommends ca-certificates curl gnupg >/dev/null; curl -fsSL https://couchdb.apache.org/repo/keys.asc | gpg --dearmor -o /usr/share/keyrings/couchdb-archive-keyring.gpg; echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ bookworm main" > /etc/apt/sources.list.d/couchdb.list; apt-get update >/dev/null; apt-cache policy couchdb | sed -n "1,30p"; apt-cache policy couchdb | grep -q "$(APP_VERSION)~bookworm"'
+	@$(DOCKER) run --rm debian:$(DEBIAN_SUITE)-slim sh -lc 'set -e; apt-get update >/dev/null; apt-get install -y --no-install-recommends ca-certificates curl gnupg >/dev/null; curl -fsSL https://couchdb.apache.org/repo/keys.asc | gpg --dearmor -o /usr/share/keyrings/couchdb-archive-keyring.gpg; echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ $(DEBIAN_SUITE) main" > /etc/apt/sources.list.d/couchdb.list; apt-get update >/dev/null; apt-cache policy couchdb | sed -n "1,30p"; apt-cache policy couchdb | grep -q "$(APP_VERSION)~$(DEBIAN_SUITE)"'
 	@echo 'Upstream: https://couchdb.apache.org/'
 
 release-dry-run: ## Show tags/metadata that would be published.

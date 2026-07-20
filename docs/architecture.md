@@ -57,4 +57,4 @@ For PostgreSQL and MariaDB pilots, the initial template uses Alpine packages ins
 
 ## Current LSIO Alpine 3.24 platform signal
 
-`ghcr.io/linuxserver/baseimage-debian:bookworm` currently builds successfully for `linux/amd64` and `linux/arm64` in CI. `linux/arm/v7` fails with `no match for platform in manifest`, so 32-bit Raspberry Pi support must remain best-effort until a compatible base image is selected.
+`ghcr.io/linuxserver/baseimage-debian:trixie` currently builds successfully for `linux/amd64` and `linux/arm64` in CI. `linux/arm/v7` fails with `no match for platform in manifest`, so 32-bit Raspberry Pi support must remain best-effort until a compatible base image is selected.

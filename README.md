@@ -77,4 +77,4 @@ Default CI platforms are:
 linux/amd64,linux/arm64
 ```
 
-The official Apache CouchDB Debian repository does not currently provide `armhf`/`linux/arm/v7` packages for Debian bookworm, so 32-bit ARM is not included.
+The official Apache CouchDB Debian repository does not currently provide `armhf`/`linux/arm/v7` packages for Debian trixie, so 32-bit ARM is not included.
