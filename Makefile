@@ -196,7 +196,7 @@ check-upstream baseimage-check: ## Print current pinned LSIO baseimage and Couch
 	@$(DOCKER) buildx imagetools inspect '$(LSIO_BASE_IMAGE)' | sed -n '1,80p'
 	@echo ''
 	@echo 'Apache CouchDB Debian package signal for $(APP_VERSION):'
-	@$(DOCKER) run --rm debian:$(DEBIAN_SUITE)-slim sh -lc 'set -e; apt-get update >/dev/null; apt-get install -y --no-install-recommends ca-certificates curl gnupg >/dev/null; curl -fsSL https://couchdb.apache.org/repo/keys.asc | gpg --dearmor -o /usr/share/keyrings/couchdb-archive-keyring.gpg; echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ $(DEBIAN_SUITE) main" > /etc/apt/sources.list.d/couchdb.list; apt-get update >/dev/null; apt-cache policy couchdb | sed -n "1,30p"; apt-cache policy couchdb | grep -q "$(APP_VERSION)~$(DEBIAN_SUITE)"'
+	@$(DOCKER) run --rm debian:$(DEBIAN_SUITE)-slim sh -lc 'set -e; export DEBIAN_FRONTEND=noninteractive; apt-get update >/dev/null; apt-get install -y --no-install-recommends ca-certificates curl gnupg >/dev/null; curl -fsSL https://couchdb.apache.org/repo/keys.asc | gpg --dearmor -o /usr/share/keyrings/couchdb-archive-keyring.gpg; echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ $(DEBIAN_SUITE) main" > /etc/apt/sources.list.d/couchdb.list; apt-get update >/dev/null; apt-cache policy couchdb | sed -n "1,30p"; apt-cache policy couchdb | grep -q "$(APP_VERSION)~$(DEBIAN_SUITE)"'
 	@echo 'Upstream: https://couchdb.apache.org/'
 
 release-dry-run: ## Show tags/metadata that would be published.

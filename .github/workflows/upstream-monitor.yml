@@ -1,0 +1,94 @@
+name: Upstream Monitor
+
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    env:
+      DEBIAN_SUITE: trixie
+      APP_VERSION: 3.5.2.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Check upstream package and base image
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp
+
+          current_base=$(grep -m1 '^FROM ghcr.io/linuxserver/baseimage-debian:' Dockerfile | cut -d: -f2 || true)
+          pinned_version=$(awk -F ' ?= ?' '/^APP_VERSION[[:space:]]*\?=/{print $2; exit}' Makefile || true)
+
+          package_policy=$(
+            docker run --rm "debian:${DEBIAN_SUITE}-slim" sh -lc '
+              set -e
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update >/dev/null
+              apt-get install -y --no-install-recommends ca-certificates curl gnupg >/dev/null
+              curl -fsSL https://couchdb.apache.org/repo/keys.asc | gpg --dearmor -o /usr/share/keyrings/couchdb-archive-keyring.gpg
+              echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ '"${DEBIAN_SUITE}"' main" > /etc/apt/sources.list.d/couchdb.list
+              apt-get update >/dev/null
+              apt-cache policy couchdb | sed -n "1,30p"
+            '
+          )
+
+          candidate=$(printf '%s\n' "$package_policy" | awk '/Candidate:/ {print $2; exit}')
+          pinned_package="${pinned_version:-${APP_VERSION}}~${DEBIAN_SUITE}"
+
+          {
+            echo "# Upstream monitor"
+            echo
+            printf '%s\n' '- Image: `couchdb`'
+            printf '%s\n' "- Current LSIO base tag: \`${current_base:-unknown}\`"
+            printf '%s\n' "- Debian suite: \`${DEBIAN_SUITE}\`"
+            printf '%s\n' "- Pinned APP_VERSION: \`${pinned_version:-unknown}\`"
+            printf '%s\n' "- Expected Debian package: \`${pinned_package}\`"
+            printf '%s\n' "- Debian package candidate: \`${candidate:-not found}\`"
+            echo "- Upstream source: https://github.com/apache/couchdb"
+            echo "- Apache CouchDB package repo: https://couchdb.apache.org/repo/"
+            echo
+            echo "## apt-cache policy couchdb"
+            echo
+            echo '```text'
+            printf '%s\n' "$package_policy"
+            echo '```'
+            echo
+            if [[ -n "${candidate:-}" && "${candidate}" != "${pinned_package}" ]]; then
+              echo "## Action needed"
+              echo
+              printf '%s\n' "The package candidate differs from the pinned version. Review upstream release notes, bump APP_VERSION if appropriate, reset IMAGE_REVISION to mldm1, then run local validation and smoke tests."
+            else
+              echo "## Status"
+              echo
+              echo "Pinned version still matches the Debian package candidate."
+            fi
+          } | tee .tmp/upstream-summary.md
+
+          cat .tmp/upstream-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create or update upstream tracking issue
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const title = 'Upstream monitor: couchdb';
+            const marker = '<!-- upstream-monitor:couchdb -->';
+            const body = `${marker}\n${fs.readFileSync('.tmp/upstream-summary.md', 'utf8')}\n\nThis issue is managed by the upstream monitor workflow.`;
+            const {owner, repo} = context.repo;
+            const existing = await github.rest.issues.listForRepo({owner, repo, state: 'open', labels: 'upstream-monitor'});
+            const issue = existing.data.find(i => i.title === title);
+            if (issue) {
+              await github.rest.issues.update({owner, repo, issue_number: issue.number, body});
+            } else {
+              await github.rest.issues.create({owner, repo, title, body, labels: ['upstream-monitor']});
+            }
