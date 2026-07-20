@@ -12,6 +12,7 @@ VCS_REF="${VCS_REF:-$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 VERSION="${VERSION:-${IMAGE_TAG}}"
 APP_VERSION="${APP_VERSION:-}"
 IMAGE_REVISION="${IMAGE_REVISION:-}"
+DEBIAN_SUITE="${DEBIAN_SUITE:-trixie}"
 ATTESTATIONS="${ATTESTATIONS:-auto}"
 
 extra_args=("$@")
@@ -38,6 +39,8 @@ exec ${DOCKER} buildx build \
   --build-arg VERSION="$VERSION" \
   --build-arg APP_VERSION="$APP_VERSION" \
   --build-arg IMAGE_REVISION="$IMAGE_REVISION" \
+  --build-arg DEBIAN_SUITE="$DEBIAN_SUITE" \
+  --build-arg LSIO_BASE_VERSION="$DEBIAN_SUITE" \
   --build-arg VCS_REF="$VCS_REF" \
   --tag "${IMAGE_NAME}:${IMAGE_TAG}" \
   "${attestation_args[@]}" \
